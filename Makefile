@@ -1,20 +1,9 @@
-PROJECT=transformer-experiments
-VERSION=3.8.2
-VENV=${PROJECT}-${VERSION}
-VENV_DIR=$(shell pyenv root)/versions/${VENV}
-PYTHON=${VENV_DIR}/bin/python
-
-## Assumption: You have `pyenv` and `pyenv-virtualenv` installed beforehand
-##
-## https://github.com/pyenv/pyenv
-## https://github.com/pyenv/pyenv-virtualenv
-##
-
-# Colors for echos
-ccend=$(shell tput sgr0)
-ccbold=$(shell tput bold)
-ccgreen=$(shell tput setaf 2)
-ccso=$(shell tput smso)
+################################################
+#				ASSUMPTIONS
+################################################
+## If you have `pyenv` and `pyenv-virtualenv`
+## installed beforehand, run the `darwin`
+## or `linux` commands.
 
 darwin: ## >> pre-requirements for darwin
 	brew update
@@ -28,6 +17,21 @@ linux: ## >> pre-requirements for linux
 	. ~/.bash_profile
 	echo -e 'if command -v pyenv 1>/dev/null 2>&1; then\n  eval "$(pyenv init -)"\nfi' >> ~/.bash_profile
 
+################################################
+#				MAIN COMMANDS
+################################################
+PROJECT=transformer-experiments
+VERSION=3.8.2
+VENV=${PROJECT}-${VERSION}
+VENV_DIR=$(shell pyenv root)/versions/${VENV}
+PYTHON=${VENV_DIR}/bin/python
+
+
+# Colors for echos
+ccend=$(shell tput sgr0)
+ccbold=$(shell tput bold)
+ccgreen=$(shell tput setaf 2)
+ccso=$(shell tput smso)
 
 clean: ## >> remove all environment and build files.
 	@echo ""
@@ -49,12 +53,16 @@ $(VENV_DIR):
 	pyenv virtualenv ${VERSION} ${VENV}
 	echo ${VENV} > .python-version
 
-install: venv requirements.txt ##@main >> update requirements.txt inside the virtual environment
+install: venv requirements.txt ##@main >> update requirements.txt inside the venv
 	@echo "$(ccso)--> Updating packages $(ccend)"
 	$(PYTHON) -m pip install -r requirements.txt
 
 deactivate: ##@main >> deactivate current virtualenv and use local system python
 	pyenv local system
+
+################################################
+#				HELPERS
+################################################
 
 # And add help text after each target name starting with '\#\#'
 # A category can be added with @category
