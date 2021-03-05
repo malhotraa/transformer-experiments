@@ -1,17 +1,16 @@
 name: CI
 on: [push, pull_request]
 jobs:
-  build:
+  run_python_tests:
+    name: "Python"
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
-    - uses: actions/setup-python@v1
-      with:
-        python-version: '3.6'
-        architecture: 'x64'
-    - name: Install the library
-      run: |
-        make build
-    - name: Run tests
-      run: |
-        nbdev_test_nbs
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.8.8'
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+      - name: Run tests
+        run: pytest
