@@ -49,7 +49,6 @@ venv: $(VENV_DIR)
 $(VENV_DIR):
 	@echo "$(ccso)--> Install and setup pyenv and virtualenv $(ccend)"
 	pyenv install --skip-existing ${VERSION}
-	python3 -m pip install --upgrade pip
 	pyenv virtualenv ${VERSION} ${VENV}
 	echo ${VENV} > .python-version
 
