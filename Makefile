@@ -10,7 +10,7 @@ darwin: ## >> pre-requirements for darwin
 	brew install pyenv pyenv-virtualenv
 
 linux: ## >> pre-requirements for linux
-	pip install pyenv pyenv-virtualenv
+	pip install pyenv
 
 ################################################
 #				MAIN COMMANDS
