@@ -1,9 +1,9 @@
 import torch
 import unittest
 
-from transformer.model import MultiHeadedAttention
+from transformer.pytorch.model import MultiHeadedAttention
 
-class TestTransformer(unittest.TestCase):
+class TestPytorchTransformer(unittest.TestCase):
     def setUp(self):
         self.batch_size = 4
         self.heads = 8
