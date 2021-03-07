@@ -161,15 +161,22 @@ def subsequent_mask(size):
 
 
 def attention(query, key, value, mask=None, dropout=None):
-    "Compute 'Scaled Dot Product Attention'"
+    """Compute 'Scaled Dot Product Attention'
+    query: (d0, d1, ..., seq_len, dims)
+    key: (d0, d1, ..., seq_len, dims)
+    value: (d0, d1, ..., seq_len, dims)
+    """
     d_k = query.size(-1)
     scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(d_k)
     if mask is not None:
         scores = scores.masked_fill(mask == 0, -1e9)
-    p_attn = F.softmax(scores, dim=-1)
+    weights = F.softmax(scores, dim=-1) # dims: (d0, d1, ..., seq_len, seq_len)
     if dropout is not None:
-        p_attn = dropout(p_attn)
-    return torch.matmul(p_attn, value), p_attn
+        weights = dropout(weights)
+
+    # out dims = (d0, d1, ..., seq_len, dims)
+    out = torch.matmul(weights, value)
+    return out, weights
 
 
 class MultiHeadedAttention(nn.Module):
@@ -177,14 +184,13 @@ class MultiHeadedAttention(nn.Module):
         "Take in model size and number of heads."
         super(MultiHeadedAttention, self).__init__()
         assert d_model % h == 0
-        # We assume d_v always equals d_k
-        self.d_k = d_model // h
+        # We assume d_v always equals d_head
+        self.d_head = d_model // h
         self.h = h
         self.proj_q = nn.Linear(d_model, d_model)
         self.proj_k = nn.Linear(d_model, d_model)
         self.proj_v = nn.Linear(d_model, d_model)
         self.ret_proj = nn.Linear(d_model, d_model)
-        self.attn = None
         self.dropout = nn.Dropout(p=dropout)
 
     def forward(self, query, key, value, mask=None):
@@ -192,18 +198,21 @@ class MultiHeadedAttention(nn.Module):
         if mask is not None:
             # Same mask applied to all h heads.
             mask = mask.unsqueeze(1)
-        nbatches = query.size(0)
+        batch_size = query.size(0)
 
-        # 1) Do all the linear projections in batch from d_model => h x d_k
-        query = self.proj_q(query).view(nbatches, -1, self.h, self.d_k).transpose(1, 2)
-        key = self.proj_k(key).view(nbatches, -1, self.h, self.d_k).transpose(1, 2)
-        value = self.proj_v(value).view(nbatches, -1, self.h, self.d_k).transpose(1, 2)
+        # 1) Do all the linear projections in batch from d_model => h x d_head
+        # query shape: (batch_size, num_heads, seq_len_q, d_head)
+        query = self.proj_q(query).view(batch_size, -1, self.h, self.d_head).transpose(1, 2)
+        key = self.proj_k(key).view(batch_size, -1, self.h, self.d_head).transpose(1, 2)
+        value = self.proj_v(value).view(batch_size, -1, self.h, self.d_head).transpose(1, 2)
 
         # 2) Apply attention on all the projected vectors in batch.
-        x, self.attn = attention(query, key, value, mask=mask, dropout=self.dropout)
+        # x.shape = (batch_size, self.h, seq_len, d_head)
+        x, _ = attention(query, key, value, mask=mask, dropout=self.dropout)
 
         # 3) "Concat" using a view and apply a final linear.
-        x = x.transpose(1, 2).contiguous().view(nbatches, -1, self.h * self.d_k)
+        # dims = batch_size, seq_len, heads, d_head
+        x = x.transpose(1, 2).contiguous().view(batch_size, -1, self.h * self.d_head)
         return self.ret_proj(x)
 
 
