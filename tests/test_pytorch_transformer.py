@@ -20,5 +20,3 @@ class TestPytorchTransformer(unittest.TestCase):
         out = self.multi_head_attn.forward(self.query, self.key, self.value)
         self.assertEqual(out.dtype, self.query.dtype)
         self.assertEqual(out.shape, (self.batch_size, 1, self.heads * self.dims // self.heads))
-
-        # from pdb import set_trace; set_trace()

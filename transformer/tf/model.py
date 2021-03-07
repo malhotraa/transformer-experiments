@@ -34,7 +34,7 @@ class MultiHeadAttention(tf.keras.layers.Layer):
 
         self.dense = tf.keras.layers.Dense(d_model)
 
-    def call(self, v, k, q, mask):
+    def call(self, q, k, v, mask=None):
         batch_size = tf.shape(q)[0]
 
         q = self.wq(q)  # (batch_size, seq_len, d_model)
