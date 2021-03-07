@@ -53,12 +53,16 @@ class Generator(nn.Module):
 
 def attention(query, key, value, mask=None, dropout=None):
     """Compute 'Scaled Dot Product Attention'
-    query: (d0, d1, ..., seq_len, dims)
-    key: (d0, d1, ..., seq_len, dims)
-    value: (d0, d1, ..., seq_len, dims)
+    query: (batch_size, num_heads * seq_len, dims)
+    key: (batch_size, num_heads * seq_len, dims)
+    value: (batch_size, num_heads * seq_len, dims)
+    mask: (batch_size, num_heads * seq_len, num_heads * seq_len)
     """
     d_k = query.size(-1)
+    # scores: (batch_size, num_heads * seq_len, num_heads * seq_len)
     scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(d_k)
+
+    # mask: (batch_size, 1, num_heads * seq_len)
     if mask is not None:
         scores = scores.masked_fill(mask == 0, -1e9)
     weights = F.softmax(scores, dim=-1) # dims: (d0, d1, ..., seq_len, seq_len)
@@ -194,7 +198,6 @@ class EncoderLayer(nn.Module):
 
     def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None):
         "Follow Figure 1 (left) for connections."
-        # import pdb; pdb.set_trace()
         x = self.sublayer[0](x, lambda x: self.self_attn(x, x, x, mask))
         return self.sublayer[1](x, self.feed_forward)
 
@@ -219,7 +222,12 @@ class Decoder(nn.Module):
 class DecoderLayer(nn.Module):
     "Decoder is made of self-attn, src-attn, and feed forward (defined below)"
 
-    def __init__(self, size, self_attn, src_attn, feed_forward, dropout):
+    def __init__(self,
+                size: int,
+                self_attn: MultiHeadedAttention,
+                src_attn: MultiHeadedAttention,
+                feed_forward: PositionwiseFeedForward,
+                dropout: float):
         super(DecoderLayer, self).__init__()
         self.size = size
         self.self_attn = self_attn
