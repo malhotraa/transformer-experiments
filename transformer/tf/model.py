@@ -34,13 +34,6 @@ class MultiHeadAttention(tf.keras.layers.Layer):
 
         self.dense = tf.keras.layers.Dense(d_model)
 
-    def split_heads(self, x, batch_size):
-        """Split the last dimension into (num_heads, depth).
-        Transpose the result such that the shape is (batch_size, num_heads, seq_len, depth)
-        """
-        x = tf.reshape(x, (batch_size, -1, self.num_heads, self.depth))
-        return tf.transpose(x, perm=[0, 2, 1, 3])
-
     def call(self, v, k, q, mask):
         batch_size = tf.shape(q)[0]
 
@@ -48,9 +41,9 @@ class MultiHeadAttention(tf.keras.layers.Layer):
         k = self.wk(k)  # (batch_size, seq_len, d_model)
         v = self.wv(v)  # (batch_size, seq_len, d_model)
 
-        q = self.split_heads(q, batch_size)  # (batch_size, num_heads, seq_len_q, depth)
-        k = self.split_heads(k, batch_size)  # (batch_size, num_heads, seq_len_k, depth)
-        v = self.split_heads(v, batch_size)  # (batch_size, num_heads, seq_len_v, depth)
+        q = tf.transpose(tf.reshape(q, (batch_size, -1, self.num_heads, self.depth)), perm=[0, 2, 1, 3]) # (batch_size, num_heads, seq_len_q, depth)
+        k = tf.transpose(tf.reshape(k, (batch_size, -1, self.num_heads, self.depth)), perm=[0, 2, 1, 3]) # (batch_size, num_heads, seq_len_q, depth)
+        v = tf.transpose(tf.reshape(v, (batch_size, -1, self.num_heads, self.depth)), perm=[0, 2, 1, 3]) # (batch_size, num_heads, seq_len_q, depth)
 
         # scaled_attention.shape == (batch_size, num_heads, seq_len_q, depth)
         # attention_weights.shape == (batch_size, num_heads, seq_len_q, seq_len_k)
