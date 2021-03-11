@@ -9,7 +9,7 @@ def attention(q, k, v, mask=None, dropout=None):
     scaled_attention_logits = matmul_qk / tf.math.sqrt(dk)
 
     if mask is not None:
-        scaled_attention_logits += (mask * -1e9)
+        raise NotImplementedError
     attention_weights = tf.nn.softmax(scaled_attention_logits, axis=-1)
     if dropout is not None:
         attention_weights = dropout(attention_weights)
