@@ -53,13 +53,9 @@ class Generator(nn.Module):
 
 def attention(query, key, value, mask=None, dropout=None):
     """Compute 'Scaled Dot Product Attention'
-    query: (batch_size, num_heads, num_heads * seq_len, dims)
-    key: (batch_size, num_heads * seq_len, dims)
-    value: (batch_size, num_heads * seq_len, dims)
-    mask: (batch_size, num_heads * seq_len, num_heads * seq_len)
     """
     d_k = query.size(-1)
-    # scores: (batch_size, num_heads * seq_len, num_heads * seq_len)
+    # scores: (batch_size, num_heads, seq_len, seq_len)
     scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(d_k)
 
     # mask: (batch_size, 1, num_heads * seq_len)
@@ -88,18 +84,28 @@ class MultiHeadedAttention(nn.Module):
         self.ret_proj = nn.Linear(d_model, d_model)
         self.dropout = nn.Dropout(p=dropout)
 
-    def forward(self, query, key, value, mask=None):
-        "Implements Figure 2"
+    def forward(
+            self,
+            query: torch.Tensor,
+            key: torch.Tensor,
+            value: torch.Tensor,
+            mask: Optional[torch.Tensor] = None):
+        """
+        query: (batch_size, seq_len, dmodel)
+        key: (batch_size, seq_len, dmodel)
+        value: (batch_size, seq_len, dmodel)
+        mask: (batch_size, seq_len)
+        """
         if mask is not None:
             # Same mask applied to all h heads.
             mask = mask.unsqueeze(1)
         batch_size = query.size(0)
+        seq_len = query.size(1)
 
         # 1) Do all the linear projections in batch from d_model => h x d_head
-        # query shape: (batch_size, num_heads, seq_len_q, d_head)
-        query = self.proj_q(query).view(batch_size, -1, self.h, self.d_head).transpose(1, 2)
-        key = self.proj_k(key).view(batch_size, -1, self.h, self.d_head).transpose(1, 2)
-        value = self.proj_v(value).view(batch_size, -1, self.h, self.d_head).transpose(1, 2)
+        query = self.proj_q(query).view(batch_size, seq_len, self.h, self.d_head).transpose(1, 2)
+        key = self.proj_k(key).view(batch_size, seq_len, self.h, self.d_head).transpose(1, 2)
+        value = self.proj_v(value).view(batch_size, seq_len, self.h, self.d_head).transpose(1, 2)
 
         # 2) Apply attention on all the projected vectors in batch.
         # x.shape = (batch_size, self.h, seq_len, d_head)
@@ -107,7 +113,7 @@ class MultiHeadedAttention(nn.Module):
 
         # 3) "Concat" using a view and apply a final linear.
         # dims = batch_size, seq_len, heads * d_head
-        x = x.transpose(1, 2).contiguous().view(batch_size, -1, self.h * self.d_head)
+        x = x.transpose(1, 2).contiguous().view(batch_size, seq_len, self.h * self.d_head)
         return self.ret_proj(x)
 
 
