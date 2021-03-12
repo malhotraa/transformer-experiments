@@ -53,7 +53,7 @@ class Generator(nn.Module):
 
 def attention(query, key, value, mask=None, dropout=None):
     """Compute 'Scaled Dot Product Attention'
-    query: (batch_size, num_heads * seq_len, dims)
+    query: (batch_size, num_heads, num_heads * seq_len, dims)
     key: (batch_size, num_heads * seq_len, dims)
     value: (batch_size, num_heads * seq_len, dims)
     mask: (batch_size, num_heads * seq_len, num_heads * seq_len)
@@ -270,7 +270,7 @@ class PositionalEncoding(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
 
         # Compute the positional encodings once in log space.
-        pe = torch.zeros(max_len, d_model)
+        pe = torch.zeros(max_len, d_model, requires_grad=False)
         position = torch.arange(0, max_len).unsqueeze(1)
         div_term = torch.exp(
             torch.arange(0, d_model, 2) * -(math.log(10000.0) / d_model)
@@ -280,8 +280,8 @@ class PositionalEncoding(nn.Module):
         pe = pe.unsqueeze(0)
         self.register_buffer("pe", pe)
 
-    def forward(self, x):
-        x = x + Variable(self.pe[:, : x.size(1)], requires_grad=False)
+    def forward(self, x: torch.Tensor):
+        x = x + self.pe[:, : x.size(1)]
         return self.dropout(x)
 
 

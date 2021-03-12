@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import unittest
 
-from transformer.model import Encoder, clones, MultiHeadedAttention, attention, EncoderLayer, DecoderLayer, SublayerConnection, PositionwiseFeedForward, Decoder
+from transformer.model import Encoder, clones, MultiHeadedAttention, attention, EncoderLayer, DecoderLayer, SublayerConnection, PositionwiseFeedForward, Decoder, PositionalEncoding
 
 class TestTransformer(unittest.TestCase):
     def setUp(self):
@@ -63,10 +63,6 @@ class TestTransformer(unittest.TestCase):
         self.assertEqual(out.device, self.query.device)
         self.assertEqual(weights.device, self.query.device)
 
-    def test_attention_batch_size_many_multi_head_mask(self):
-        # TODO: add test with a mask
-        pass
-
     def test_clones(self):
         num_clones = 4
         mod = nn.Linear(self.dims, self.dims)
@@ -113,5 +109,23 @@ class TestTransformer(unittest.TestCase):
         self.assertEqual(out.device, self.query.device)
         self.assertEqual(out.shape, self.query.shape)
 
+    def test_position_encoding(self):
+        positional_enc = PositionalEncoding(self.dims, self.dropout_prob)
+        out = positional_enc.forward(self.query)
+        self.assertEqual(out.dtype, self.query.dtype)
+        self.assertEqual(out.device, self.query.device)
+        self.assertEqual(out.shape, self.query.shape)
 
-
+    def test_masked_attention(self):
+        total_seq_len = self.heads * self.seq_len
+        mask = torch.ones((self.batch_size, total_seq_len, total_seq_len), dtype=torch.bool)
+        mask[: , :, int(0.5 * total_seq_len):] = False
+        out, weights = attention(query=self.query, key=self.key, value=self.value, mask=mask)
+        self.assertTrue(torch.allclose(weights[:, :, int(0.5 * total_seq_len):], 
+                                       torch.zeros(self.batch_size, total_seq_len, int(0.5 * total_seq_len))))
+        self.assertEqual(out.shape, (self.batch_size, total_seq_len, self.dims))
+        self.assertEqual(weights.shape, (self.batch_size, total_seq_len, total_seq_len))
+        self.assertEqual(out.dtype, self.query.dtype)
+        self.assertEqual(weights.dtype, self.query.dtype)
+        self.assertEqual(out.device, self.query.device)
+        self.assertEqual(weights.device, self.query.device)
