@@ -7,18 +7,15 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python:
-          - 3.8.8
+        python: [3.8.8]
     steps:
-    - uses: actions/checkout@v2
-    - name: install pyenv
-      uses: "gabrielfalcao/pyenv-action@v5"
-      with:
-        default: "${{ matrix.python }}"
-        command: pip install -U pip  # upgrade pip after installing python
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.8.8'
+      - name: Install dependencies
+        run: make install
+      - name: Run tests
+        run: pytest
 
-    - name: Install dependencies
-      run: make build
-
-    - name: Run tests
-      run: pytest .
