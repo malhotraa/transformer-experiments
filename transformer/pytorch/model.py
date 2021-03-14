@@ -1,3 +1,5 @@
+from typing import Optional
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -5,9 +7,11 @@ import torch.nn.functional as F
 import math, copy, time
 from torch.autograd import Variable
 
+def clones(module, N):
+    "Produce N identical layers."
+    return nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
+
 ## Architecture
-
-
 class EncoderDecoder(nn.Module):
     """
     A standard Encoder-Decoder architecture. Base for this and many
@@ -44,14 +48,94 @@ class Generator(nn.Module):
         return F.log_softmax(self.proj(x), dim=-1)
 
 
+### Attention
+
+
+def attention(query, key, value, mask=None, dropout=None):
+    """Compute 'Scaled Dot Product Attention'
+    """
+    d_k = query.size(-1)
+    # scores: (batch_size, num_heads, seq_len, seq_len)
+    scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(d_k)
+
+    # mask: (batch_size, 1, num_heads * seq_len)
+    if mask is not None:
+        scores = scores.masked_fill(mask == 0, -1e9)
+    weights = F.softmax(scores, dim=-1) # dims: (d0, d1, ..., seq_len, seq_len)
+    if dropout is not None:
+        weights = dropout(weights)
+
+    # out dims = (d0, d1, ..., seq_len, dims)
+    out = torch.matmul(weights, value)
+    return out, weights
+
+
+class MultiHeadedAttention(nn.Module):
+    def __init__(self, h, d_model, dropout=0.1):
+        "Take in model size and number of heads."
+        super(MultiHeadedAttention, self).__init__()
+        assert d_model % h == 0
+        # We assume d_v always equals d_head
+        self.d_head = d_model // h
+        self.h = h
+        self.proj_q = nn.Linear(d_model, d_model)
+        self.proj_k = nn.Linear(d_model, d_model)
+        self.proj_v = nn.Linear(d_model, d_model)
+        self.ret_proj = nn.Linear(d_model, d_model)
+        self.dropout = nn.Dropout(p=dropout)
+
+    def forward(
+            self,
+            query: torch.Tensor,
+            key: torch.Tensor,
+            value: torch.Tensor,
+            mask: Optional[torch.Tensor] = None):
+        """
+        query: (batch_size, seq_len, dmodel)
+        key: (batch_size, seq_len, dmodel)
+        value: (batch_size, seq_len, dmodel)
+        mask: (batch_size, seq_len)
+        """
+        if mask is not None:
+            # Same mask applied to all h heads.
+            mask = mask.unsqueeze(1)
+        batch_size = query.size(0)
+        seq_len = query.size(1)
+
+        # 1) Do all the linear projections in batch from d_model => h x d_head
+        query = self.proj_q(query).view(batch_size, seq_len, self.h, self.d_head).transpose(1, 2)
+        key = self.proj_k(key).view(batch_size, seq_len, self.h, self.d_head).transpose(1, 2)
+        value = self.proj_v(value).view(batch_size, seq_len, self.h, self.d_head).transpose(1, 2)
+
+        # 2) Apply attention on all the projected vectors in batch.
+        # x.shape = (batch_size, self.h, seq_len, d_head)
+        x, _ = attention(query, key, value, mask=mask, dropout=self.dropout)
+
+        # 3) "Concat" using a view and apply a final linear.
+        # dims = batch_size, seq_len, heads * d_head
+        x = x.transpose(1, 2).contiguous().view(batch_size, seq_len, self.h * self.d_head)
+        return self.ret_proj(x)
+
+
+## Position-wise Feed-Forward Networks
+
+
+class PositionwiseFeedForward(nn.Module):
+    "Implements FFN equation."
+
+    def __init__(self, d_model, d_ff, dropout=0.1):
+        super(PositionwiseFeedForward, self).__init__()
+        self.w_1 = nn.Linear(d_model, d_ff)
+        self.w_2 = nn.Linear(d_ff, d_model)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x):
+        return self.w_2(self.dropout(F.relu(self.w_1(x))))
+
+
 ## Encoder and Decoder Stacks
 
 ### Encoder
-def clones(module, N):
-    "Produce N identical layers."
-    return nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
-
-
 class Encoder(nn.Module):
     "Core encoder is a stack of N layers"
 
@@ -60,7 +144,7 @@ class Encoder(nn.Module):
         self.layers = clones(layer, N)
         self.norm = LayerNorm(layer.size)
 
-    def forward(self, x, mask):
+    def forward(self, x, mask: Optional[torch.Tensor] = None):
         "Pass the input (and mask) through each layer in turn."
         for layer in self.layers:
             x = layer(x, mask)
@@ -88,27 +172,37 @@ class SublayerConnection(nn.Module):
     Note for code simplicity the norm is first as opposed to last.
     """
 
-    def __init__(self, size, dropout):
+    def __init__(self, size: int, dropout: float):
         super(SublayerConnection, self).__init__()
         self.norm = LayerNorm(size)
         self.dropout = nn.Dropout(dropout)
 
-    def forward(self, x, sublayer):
-        "Apply residual connection to any sublayer with the same size."
+    def forward(self, x: torch.Tensor, sublayer: nn.Module):
+        """Apply residual connection to any sublayer with the same size.
+        Assumption: sublayer doesnt change dims of x.
+        :type x: torch.Tensor
+        :type sublayer: nn.Module
+        :rtype: torch.Tensor
+        """
         return x + self.dropout(sublayer(self.norm(x)))
 
 
 class EncoderLayer(nn.Module):
     "Encoder is made up of self-attn and feed forward (defined below)"
 
-    def __init__(self, size, self_attn, feed_forward, dropout):
+    def __init__(
+            self,
+            size: int,
+            self_attn: MultiHeadedAttention,
+            feed_forward: PositionwiseFeedForward,
+            dropout: float):
         super(EncoderLayer, self).__init__()
         self.self_attn = self_attn
         self.feed_forward = feed_forward
         self.sublayer = clones(SublayerConnection(size, dropout), 2)
         self.size = size
 
-    def forward(self, x, mask):
+    def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None):
         "Follow Figure 1 (left) for connections."
         x = self.sublayer[0](x, lambda x: self.self_attn(x, x, x, mask))
         return self.sublayer[1](x, self.feed_forward)
@@ -134,7 +228,12 @@ class Decoder(nn.Module):
 class DecoderLayer(nn.Module):
     "Decoder is made of self-attn, src-attn, and feed forward (defined below)"
 
-    def __init__(self, size, self_attn, src_attn, feed_forward, dropout):
+    def __init__(self,
+                size: int,
+                self_attn: MultiHeadedAttention,
+                src_attn: MultiHeadedAttention,
+                feed_forward: PositionwiseFeedForward,
+                dropout: float):
         super(DecoderLayer, self).__init__()
         self.size = size
         self.self_attn = self_attn
@@ -157,72 +256,6 @@ def subsequent_mask(size):
     return torch.from_numpy(subsequent_mask) == 0
 
 
-### Attention
-
-
-def attention(query, key, value, mask=None, dropout=None):
-    "Compute 'Scaled Dot Product Attention'"
-    d_k = query.size(-1)
-    scores = torch.matmul(query, key.transpose(-2, -1)) / math.sqrt(d_k)
-    if mask is not None:
-        scores = scores.masked_fill(mask == 0, -1e9)
-    p_attn = F.softmax(scores, dim=-1)
-    if dropout is not None:
-        p_attn = dropout(p_attn)
-    return torch.matmul(p_attn, value), p_attn
-
-
-class MultiHeadedAttention(nn.Module):
-    def __init__(self, h, d_model, dropout=0.1):
-        "Take in model size and number of heads."
-        super(MultiHeadedAttention, self).__init__()
-        assert d_model % h == 0
-        # We assume d_v always equals d_k
-        self.d_k = d_model // h
-        self.h = h
-        self.proj_q = nn.Linear(d_model, d_model)
-        self.proj_k = nn.Linear(d_model, d_model)
-        self.proj_v = nn.Linear(d_model, d_model)
-        self.ret_proj = nn.Linear(d_model, d_model)
-        self.attn = None
-        self.dropout = nn.Dropout(p=dropout)
-
-    def forward(self, query, key, value, mask=None):
-        "Implements Figure 2"
-        if mask is not None:
-            # Same mask applied to all h heads.
-            mask = mask.unsqueeze(1)
-        nbatches = query.size(0)
-
-        # 1) Do all the linear projections in batch from d_model => h x d_k
-        query = self.proj_q(query).view(nbatches, -1, self.h, self.d_k).transpose(1, 2)
-        key = self.proj_k(key).view(nbatches, -1, self.h, self.d_k).transpose(1, 2)
-        value = self.proj_v(value).view(nbatches, -1, self.h, self.d_k).transpose(1, 2)
-
-        # 2) Apply attention on all the projected vectors in batch.
-        x, self.attn = attention(query, key, value, mask=mask, dropout=self.dropout)
-
-        # 3) "Concat" using a view and apply a final linear.
-        x = x.transpose(1, 2).contiguous().view(nbatches, -1, self.h * self.d_k)
-        return self.ret_proj(x)
-
-
-## Position-wise Feed-Forward Networks
-
-
-class PositionwiseFeedForward(nn.Module):
-    "Implements FFN equation."
-
-    def __init__(self, d_model, d_ff, dropout=0.1):
-        super(PositionwiseFeedForward, self).__init__()
-        self.w_1 = nn.Linear(d_model, d_ff)
-        self.w_2 = nn.Linear(d_ff, d_model)
-        self.dropout = nn.Dropout(dropout)
-
-    def forward(self, x):
-        return self.w_2(self.dropout(F.relu(self.w_1(x))))
-
-
 ## Embeddings and Softmax
 class Embeddings(nn.Module):
     def __init__(self, d_model, vocab):
@@ -243,7 +276,7 @@ class PositionalEncoding(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
 
         # Compute the positional encodings once in log space.
-        pe = torch.zeros(max_len, d_model)
+        pe = torch.zeros(max_len, d_model, requires_grad=False)
         position = torch.arange(0, max_len).unsqueeze(1)
         div_term = torch.exp(
             torch.arange(0, d_model, 2) * -(math.log(10000.0) / d_model)
@@ -253,8 +286,8 @@ class PositionalEncoding(nn.Module):
         pe = pe.unsqueeze(0)
         self.register_buffer("pe", pe)
 
-    def forward(self, x):
-        x = x + Variable(self.pe[:, : x.size(1)], requires_grad=False)
+    def forward(self, x: torch.Tensor):
+        x = x + self.pe[:, : x.size(1)]
         return self.dropout(x)
 
 
