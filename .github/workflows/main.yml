@@ -1,17 +1,24 @@
 name: CI
 on: [push, pull_request]
+
 jobs:
-  build:
+  my_python_job:
+    name: "Python"
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python:
+          - 3.8.8
     steps:
-    - uses: actions/checkout@v1
-    - uses: actions/setup-python@v1
+    - uses: actions/checkout@v2
+    - name: Install python version
+      uses: gabrielfalcao/pyenv-action@v5
       with:
-        python-version: '3.8.8'
-    - name: Install the library
-      run: |
-        make linux
-        make build
+        default: "${{ matrix.python }}"
+        command: pip install -U pip  # upgrade pip after installing python
+
+    - name: Install dependencies
+      run: make install
+
     - name: Run tests
-      run: |
-        nbdev_test_nbs
+      run: pytest .
