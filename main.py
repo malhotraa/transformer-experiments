@@ -1,44 +1,27 @@
-import torch
-from transformer.model import make_model
-from transformer.training_utils import (
-    LabelSmoothing,
-    NoamOpt,
-    run_epoch,
-    SimpleLossCompute,
-    data_gen,
-    greedy_decode,
-)
+from torch.nn import MSELoss
 
-# from pdb import set_trace
+from exploration.dataset_exploration import build_dataset
+from transformer.pytorch.model import make_model
 
+num_samples = 10
+num_epochs = 5
+dmodel = 64
 
-## setup / initialize
-V = 11
-num_epoches = 1
-criterion = LabelSmoothing(size=V, padding_idx=0, smoothing=0.0)
-model = make_model(V, V, N=2)
-model_opt = NoamOpt(
-    model.src_embed[0].d_model,
-    1,
-    400,
-    torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9),
-)
+def run_epoch(dataset, model, loss_func):
+    loss = 0
+    for i in range(num_samples):
+        x, y = dataset[i]
+        out = model.forward(x, y, src_mask=None, tgt_mask=None)
+        loss += loss_func.forward(y, out)
+    return loss
 
-## training loop
-for epoch in range(num_epoches):
+train_dataset = build_dataset(block_size=dmodel)
+model = make_model(train_dataset.vocab_size, train_dataset.vocab_size, d_model=dmodel)
+loss_func = MSELoss()
+
+for epoch in range(num_epochs):
     model.train()
-    run_epoch(
-        data_gen(V, 30, 20),
-        model,
-        SimpleLossCompute(model.generator, criterion, model_opt),
-    )
-    model.eval()
-    tot_loss = run_epoch(
-        data_gen(V, 30, 5), model, SimpleLossCompute(model.generator, criterion, None)
-    )
-    print("total loss:", tot_loss.item())
+    loss = run_epoch(train_dataset, model, loss_func)
+    print(f"Loss epoch {epoch}: {loss}")
 
-## evaluate
 model.eval()
-print(greedy_decode(model, max_len=10, start_symbol=1))
-print('lol')
