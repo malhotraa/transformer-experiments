@@ -1,21 +1,6 @@
-# set up logging
 import logging
-logging.basicConfig(
-        format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
-        datefmt="%m/%d/%Y %H:%M:%S",
-        level=logging.INFO,
-)
-
-import numpy as np
-import torch
-import torch.nn as nn
-from torch.nn import functional as F
-
 import math
 from torch.utils.data import Dataset
-
-from transformer.pytorch.model import make_model
-
 
 class CharDataset(Dataset):
 
