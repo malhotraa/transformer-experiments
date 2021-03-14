@@ -18,7 +18,7 @@ jobs:
         command: pip install -U pip  # upgrade pip after installing python
 
     - name: Install dependencies
-      run: make install
+      run: make build
 
     - name: Run tests
       run: pytest .
