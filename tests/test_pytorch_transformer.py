@@ -129,6 +129,3 @@ class TestTransformer(unittest.TestCase):
         self.assertEqual(out.dtype, self.multi_head_query.dtype)
         self.assertEqual(out.device, self.multi_head_query.device)
         self.assertEqual(out.shape, self.multi_head_query.shape)
-
-    def break_tests(self):
-        self.assertEqual(1,2)
