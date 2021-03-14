@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import unittest
 
-from transformer.pytorch.model import Encoder, clones, MultiHeadedAttention, attention, EncoderLayer, DecoderLayer, SublayerConnection, PositionwiseFeedForward, Decoder, PositionalEncoding
+from transformer.pytorch.model import Embeddings, Encoder, clones, MultiHeadedAttention, attention, EncoderLayer, DecoderLayer, SublayerConnection, PositionwiseFeedForward, Decoder, PositionalEncoding
 
 class TestTransformer(unittest.TestCase):
     def setUp(self):
@@ -14,6 +14,7 @@ class TestTransformer(unittest.TestCase):
         self.dropout_prob = 0.5
         self.num_enc = 6
         self.num_dec = 6
+        self.vocab_size = 1024
         self.query = torch.rand(self.batch_size, self.heads, self.seq_len, self.dims)
         self.key = torch.rand(self.batch_size, self.heads, self.seq_len, self.dims)
         self.value = torch.rand(self.batch_size, self.heads, self.seq_len, self.dims)
@@ -129,3 +130,11 @@ class TestTransformer(unittest.TestCase):
         self.assertEqual(out.dtype, self.multi_head_query.dtype)
         self.assertEqual(out.device, self.multi_head_query.device)
         self.assertEqual(out.shape, self.multi_head_query.shape)
+
+    def test_embeddings(self):
+        x = torch.randint(10, (self.batch_size,), dtype=torch.long)
+        embeddings = Embeddings(self.dims, self.vocab_size)
+        out = embeddings.forward(x)
+        self.assertEqual(out.dtype, torch.float32)
+        self.assertEqual(out.device, x.device)
+        self.assertEqual(out.shape, (self.batch_size, self.dims))
