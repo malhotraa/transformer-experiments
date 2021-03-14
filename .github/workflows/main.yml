@@ -11,8 +11,8 @@ jobs:
           - 3.8.8
     steps:
     - uses: actions/checkout@v2
-    - name: Install python version
-      uses: gabrielfalcao/pyenv-action@v5
+    - name: install pyenv
+      uses: "gabrielfalcao/pyenv-action@v5"
       with:
         default: "${{ matrix.python }}"
         command: pip install -U pip  # upgrade pip after installing python
