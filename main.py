@@ -6,7 +6,7 @@ from transformer.pytorch.model import make_model
 
 batch_size = 10
 num_epochs = 50
-block_size = 8
+seq_len = 8
 dmodel = 64
 
 def build_optimizer(model, base_lr):
@@ -23,7 +23,7 @@ def greedy_decode(model):
     pass
 
 # train_dataset = build_synthetic_dataset(block_size, num_samples) 
-train_dataset = build_dataset(block_size=block_size)
+train_dataset = build_dataset(block_size=seq_len)
 
 model = make_model(train_dataset.vocab_size, train_dataset.vocab_size, d_model=dmodel)
 loss_func = F.cross_entropy
