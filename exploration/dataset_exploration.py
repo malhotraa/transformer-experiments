@@ -1,5 +1,7 @@
 import logging
 import math
+
+import torch
 from torch.utils.data import Dataset
 
 class CharDataset(Dataset):
@@ -65,7 +67,42 @@ class CharDataset(Dataset):
         y = torch.tensor(dix[1:], dtype=torch.long)
         return x, y
 
+    def batch(self, batch_size):
+        x_batch = []
+        y_batch = []
+        for idx in range(batch_size):
+            x, y = self.__getitem__(idx)
+            x_batch.append(x)
+            y_batch.append(y)
+        return torch.stack(x_batch, dim=0), torch.stack(y_batch, dim=0)
+
 def build_dataset(block_size):
     # you can download this file at https://github.com/karpathy/char-rnn/blob/master/data/tinyshakespeare/input.txt
     text = open('exploration/input.txt', 'r').read() # don't worry we won't run out of file handles
     return CharDataset(text, block_size) # one line of poem is roughly 50 characters
+
+def build_synthetic_dataset(block_size, num_samples):
+    class SyntheticDataset(Dataset):
+        def __init__(self, block_size, num_samples, vocab_size=100):
+            self.block_size = block_size
+            self.vocab_size = vocab_size
+            self.num_samples = num_samples
+
+        def __len__(self):
+            return self.num_samples
+        
+        def __getitem__(self, idx):
+            data = torch.randint(1, self.vocab_size, (block_size,), requires_grad=False)
+            data[0] = 1
+            return data, data
+
+        def batch(self, batch_size):
+            x_batch = []
+            y_batch = []
+            for idx in range(batch_size):
+                x, y = self.__getitem__(idx)
+                x_batch.append(x)
+                y_batch.append(y)
+            return torch.stack(x_batch, dim=0), torch.stack(y_batch, dim=0)
+    
+    return SyntheticDataset(block_size, num_samples)
