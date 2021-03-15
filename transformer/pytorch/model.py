@@ -45,7 +45,7 @@ class Generator(nn.Module):
         self.proj = nn.Linear(d_model, vocab)
 
     def forward(self, x):
-        return F.log_softmax(self.proj(x), dim=-1)
+        return self.proj(x)
 
 
 ### Attention

@@ -1,5 +1,5 @@
 import torch
-from torch.nn import MSELoss
+import torch.nn.functional as F
 
 from exploration.dataset_exploration import build_dataset, build_synthetic_dataset
 from transformer.pytorch.model import make_model
@@ -9,12 +9,14 @@ num_epochs = 50
 block_size = 8
 dmodel = 64
 
+def build_optimizer(model, base_lr):
+    return torch.optim.Adam(model.parameters(), lr=base_lr, betas=(0.9, 0.98), eps=1e-9)
+
 def run_epoch(dataset, model, loss_func):
     x, y = dataset.batch(batch_size)
-    out = model.forward(x, y, src_mask=None, tgt_mask=None)
-    prob = model.generator(out)
-    preds = torch.argmax(prob, dim=-1)
-    loss = loss_func.forward(y.float(), preds.float())
+    out = model(x, y, src_mask=None, tgt_mask=None)
+    logits = model.generator(out)
+    loss = loss_func(logits.view(-1, logits.shape[-1]), y.view(-1))
     return loss
 
 def greedy_decode(model):
@@ -24,11 +26,15 @@ def greedy_decode(model):
 train_dataset = build_dataset(block_size=block_size)
 
 model = make_model(train_dataset.vocab_size, train_dataset.vocab_size, d_model=dmodel)
-loss_func = MSELoss()
+loss_func = F.cross_entropy
+optim = build_optimizer(model, base_lr=3e-4)
 
 for epoch in range(num_epochs):
-    model.eval()
+    model.train()
     loss = run_epoch(train_dataset, model, loss_func)
+    model.zero_grad()
+    loss.backward()
+    optim.step()
     print(f"Loss epoch {epoch}: {loss}")
 
 model.eval()
