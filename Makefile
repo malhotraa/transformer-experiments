@@ -5,6 +5,9 @@
 ## installed beforehand, run the `darwin`
 ## or `linux` commands.
 
+SHELL := /bin/bash
+
+
 darwin: ## >> pre-requirements for darwin
 	brew update
 	brew install pyenv pyenv-virtualenv
@@ -51,8 +54,11 @@ install: venv requirements.txt ##@main >> update requirements.txt inside the ven
 	@echo "$(ccso)--> Updating packages $(ccend)"
 	$(PYTHON) -m pip install -r requirements.txt
 
+activate: venv
+	pyenv activate ${VENV}
+
 deactivate: ##@main >> deactivate current virtualenv and use local system python
-	pyenv local system
+	pyenv deactivate ${VENV}
 
 ################################################
 #				HELPERS

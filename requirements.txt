@@ -3,3 +3,5 @@ tensorflow==2.4.0
 torch==1.7.1
 torchtext==0.8.1
 spacy
+debugpy
+pytorch-model-summary
