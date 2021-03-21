@@ -52,7 +52,6 @@ def train():
     loss_func = F.cross_entropy
     optim = build_optimizer(model, base_lr=3e-4)
 
-    # import pdb; pdb.set_trace()
     for epoch in range(num_epochs):
         model.train()
         loss = run_epoch(train_data_loader, model, loss_func)
