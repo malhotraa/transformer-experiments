@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader, RandomSampler
 
-from exploration.dataset_exploration import CharDataset, build_synthetic_dataset
+from data.dataset import CharDataset, build_synthetic_dataset
 from transformer.pytorch.model import make_model
 
 
@@ -12,7 +12,8 @@ seq_len = 8
 dmodel = 64
 overfit = True
 
-def build_dataloader(dataset: Dataset, sampler: Sampler):
+def build_dataloader(dataset: Dataset):
+    sampler = RandomSampler(dataset)
     data_loader = DataLoader(dataset,
         batch_size,
         sampler=sampler,
@@ -25,23 +26,21 @@ def build_optimizer(model, base_lr):
     return torch.optim.Adam(model.parameters(), lr=base_lr, betas=(0.9, 0.98), eps=1e-9)
 
 def run_epoch(data_loader, model, loss_func):
-    import pdb; pdb.set_trace()
-    loss = torch.zeros((1))
+    losses = []
     for batch_idx, data_batch in enumerate(data_loader):
         x, y = data_batch.x, data_batch.y
         out = model(x, y, src_mask=None, tgt_mask=None)
         logits = model.generator(out)
-        loss += loss_func(logits.view(-1, logits.shape[-1]), y.view(-1))
-    return loss
+        losses.append(loss_func(logits.view(-1, logits.shape[-1]), y.view(-1)))
+    total_loss = torch.stack(losses).sum()
+    return total_loss
 
 def greedy_decode(model):
     pass
 
 def build_dataset(block_size: int):
-    # you can download this file at https://github.com/karpathy/char-rnn/blob/master/data/tinyshakespeare/input.txt
-     # don't worry we won't run out of file handles
     limit_len = batch_size if overfit else None
-    return CharDataset(block_size, limit_len) # one line of poem is roughly 50 characters
+    return CharDataset(block_size, limit_len)
 
 def train():
     # train_dataset = build_synthetic_dataset(block_size, num_samples)

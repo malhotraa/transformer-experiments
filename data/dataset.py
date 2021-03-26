@@ -16,10 +16,10 @@ class DataBatch(NamedTuple):
 class CharDataset(Dataset):
     DATA_PATH = '/home/ashish/Dev/transformer-experiments/data/input.txt'
 
-    def __init__(self, block_size, limit_len: Optional[int] = None) -> None:
+    def __init__(self, block_size: int, limit_len: Optional[int] = None) -> None:
         data = open(self.DATA_PATH, 'r').read()
         if limit_len:
-            data = data[:limit_len]
+            data = data[:block_size + limit_len]
         chars = sorted(list(set(data)))
         data_size, vocab_size = len(data), len(chars)
         print('data has %d characters, %d unique.' % (data_size, vocab_size))
@@ -33,7 +33,7 @@ class CharDataset(Dataset):
     def __len__(self) -> int:
         return len(self.data) - self.block_size
 
-    def __getitem__(self, idx) -> DataSample:
+    def __getitem__(self, idx: int) -> DataSample:
         # grab a chunk of (block_size + 1) characters from the data
         chunk = self.data[idx:idx + self.block_size + 1]
         # encode every character to an integer
