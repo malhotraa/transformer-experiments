@@ -5,3 +5,5 @@
 * Checks in place when we scale up everything is working as expected.
  * Add asserts
 * Implement val epoch + Metrics
+* Read GPT paper
+
