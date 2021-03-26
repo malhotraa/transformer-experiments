@@ -20,7 +20,7 @@ class TestBasicCharDataset(unittest.TestCase):
         self.n = len(self.samples)
 
     def test_limit_dataset(self):
-        self.assertEqual(len(self.dataset), self.limit_len - self.block_size)
+        self.assertEqual(len(self.dataset), self.limit_len)
   
     def test_getitem(self):
         item = self.dataset[0]
