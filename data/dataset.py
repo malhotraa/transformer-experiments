@@ -29,7 +29,12 @@ class CharDataset(Dataset):
         self.block_size = block_size
         self.vocab_size = vocab_size
         self.data = data
-    
+
+    def encode(self, seq: str) -> torch.Tensor:
+        dix = [self.stoi[s] for s in seq]
+        x = torch.tensor(dix, dtype=torch.long)
+        return x
+
     def __len__(self) -> int:
         return len(self.data) - self.block_size
 
@@ -37,7 +42,7 @@ class CharDataset(Dataset):
         # grab a chunk of (block_size + 1) characters from the data
         chunk = self.data[idx:idx + self.block_size + 1]
         # encode every character to an integer
-        dix = [self.stoi[s] for s in chunk]
+        dix = self.encode(chunk)
         """
         arrange data and targets so that the first i elements of x
         will be asked to predict the i-th element of y. Notice that
@@ -76,8 +81,7 @@ class CharDataset(Dataset):
         
         batch = [(h, e), (he, l), (hel, l), (hell, o), ...]
         """
-        x = torch.tensor(dix[:-1], dtype=torch.long)
-        y = torch.tensor(dix[1:], dtype=torch.long)
+        x, y = dix[:-1], dix[1:]
         return DataSample(x, y)
 
     @staticmethod
