@@ -397,6 +397,7 @@ def make_gpt(src_vocab: int,
     layers['positional_encoding'] = PositionalEncoding(d_model, dropout)
     for i in range(N):
         layers[f'block_{i}'] = Block(d_model, num_heads, dropout)
+    layers['generator'] = Generator(d_model, src_vocab)
     model = nn.Sequential(layers)
     # Initialize parameters with Glorot / fan_avg.
     for p in model.parameters():
