@@ -14,7 +14,7 @@ class DataBatch(NamedTuple):
     y: torch.Tensor
 
 class CharDataset(Dataset):
-    DATA_PATH = '/home/ashish/Dev/transformer-experiments/data/input.txt'
+    DATA_PATH = 'data/input.txt'
 
     def __init__(self, block_size: int, limit_len: Optional[int] = None) -> None:
         data = open(self.DATA_PATH, 'r').read()
@@ -23,7 +23,7 @@ class CharDataset(Dataset):
         chars = sorted(list(set(data)))
         data_size, vocab_size = len(data), len(chars)
         print('data has %d characters, %d unique.' % (data_size, vocab_size))
-        
+
         self.stoi = { ch:i for i,ch in enumerate(chars) }
         self.itos = { i:ch for i,ch in enumerate(chars) }
         self.block_size = block_size
@@ -58,7 +58,7 @@ class CharDataset(Dataset):
         - given "he" please predict "l" next
         - given "hel" predict "l" next
         - given "hell" predict "o" next
-        
+
         In addition, because the DataLoader will create batches of examples,
         every forward/backward pass during traning will simultaneously train
         a LOT of predictions, amortizing a lot of computation. In particular,
@@ -67,18 +67,18 @@ class CharDataset(Dataset):
         simultaneously training to make B*T predictions, all at once! Of course,
         at test time we can paralellize across batch B, but unlike during training
         we cannot parallelize across the time dimension T - we have to run
-        a forward pass of the network to recover the next single character of the 
+        a forward pass of the network to recover the next single character of the
         sequence along each batch dimension, and repeatedly always feed in a next
         character to get the next one.
-        
+
         So yes there is a big asymmetry between train/test time of autoregressive
         models. During training we can go B*T at a time with every forward pass,
-        but during test time we can only go B at a time, T times, with T forward 
+        but during test time we can only go B at a time, T times, with T forward
         passes.
 
         block = hello, ml is great, I am writing somthing
 
-        
+
         batch = [(h, e), (he, l), (hel, l), (hell, o), ...]
         """
         x, y = dix[:-1], dix[1:]
@@ -107,7 +107,7 @@ def build_synthetic_dataset(block_size, num_samples):
 
         def __len__(self):
             return self.num_samples
-        
+
         def __getitem__(self, idx):
             data = torch.randint(1, self.vocab_size, (block_size,), requires_grad=False)
             data[0] = 1
@@ -121,5 +121,5 @@ def build_synthetic_dataset(block_size, num_samples):
                 x_batch.append(x)
                 y_batch.append(y)
             return torch.stack(x_batch, dim=0), torch.stack(y_batch, dim=0)
-    
+
     return SyntheticDataset(block_size, num_samples)

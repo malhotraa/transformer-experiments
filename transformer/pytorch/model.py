@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import math, copy, time
 from torch.autograd import Variable
+from typing import OrderedDict
 
 def clones(module, N):
     "Produce N identical layers."
@@ -47,9 +48,29 @@ class Generator(nn.Module):
     def forward(self, x):
         return self.proj(x)
 
+class Block(nn.Module):
+    """A standard Decoder block for GPT."""
+
+    def __init__(self, d_model: int, n_heads: int, dropout: float = 0.1):
+        super(Block, self).__init__()
+        self.d_model = d_model
+        self.d_inner = 4 * self.d_model
+        self.n_heads = n_heads
+        self.dropout = dropout
+        self.layer_norm1 = LayerNorm(self.d_model)
+        self.layer_norm2 = LayerNorm(self.d_model)
+        self.multi_head_attn = MultiHeadedAttention(self.n_heads, self.d_model, self.dropout)
+        self.feed_fwd = PositionwiseFeedForward(d_model, self.d_inner, self.dropout)
+
+    def forward(self, x: torch.Tensor, mask: Optional[torch.Tensor] = None):
+        x = self.layer_norm1(x)
+        attn_out = self.multi_head_attn(x, x, x, mask)
+        res_1 = attn_out + x
+        feed_fwd_out = self.feed_fwd(self.layer_norm2(res_1))
+        out = res_1 + feed_fwd_out
+        return out
 
 ### Attention
-
 
 def attention(query, key, value, mask=None, dropout=None):
     """Compute 'Scaled Dot Product Attention'
@@ -154,13 +175,13 @@ class Encoder(nn.Module):
 class LayerNorm(nn.Module):
     "Construct a layernorm module (See citation for details)."
 
-    def __init__(self, features, eps=1e-6):
+    def __init__(self, features: int, eps: float = 1e-6):
         super(LayerNorm, self).__init__()
         self.a_2 = nn.Parameter(torch.ones(features))
         self.b_2 = nn.Parameter(torch.zeros(features))
         self.eps = eps
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor):
         mean = x.mean(-1, keepdim=True)
         std = x.std(-1, keepdim=True)
         return self.a_2 * (x - mean) / (std + self.eps) + self.b_2
@@ -364,3 +385,21 @@ def sample(model: nn.Module,
         x = torch.cat((x, ix), dim=1)
 
     return x
+def make_gpt(src_vocab: int,
+             N: int = 6,
+             d_model: int = 512,
+             d_ff: int = 2048,
+             num_heads: int = 8,
+             dropout: float = 0.1):
+    "GPT model."
+    layers = OrderedDict()
+    layers['embeddings'] = Embeddings(d_model, src_vocab)
+    layers['positional_encoding'] = PositionalEncoding(d_model, dropout)
+    for i in range(N):
+        layers[f'block_{i}'] = Block(d_model, num_heads, dropout)
+    model = nn.Sequential(layers)
+    # Initialize parameters with Glorot / fan_avg.
+    for p in model.parameters():
+        if p.dim() > 1:
+            nn.init.xavier_uniform_(p)
+    return model

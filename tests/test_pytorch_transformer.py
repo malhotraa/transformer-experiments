@@ -2,7 +2,7 @@ import torch
 from torch import nn
 import unittest
 
-from transformer.pytorch.model import Embeddings, Encoder, clones, MultiHeadedAttention, attention, EncoderLayer, DecoderLayer, SublayerConnection, PositionwiseFeedForward, Decoder, PositionalEncoding
+from transformer.pytorch.model import Embeddings, Encoder, clones, MultiHeadedAttention, attention, EncoderLayer, DecoderLayer, SublayerConnection, PositionwiseFeedForward, Decoder, PositionalEncoding, Block, make_gpt
 
 class TestTransformer(unittest.TestCase):
     def setUp(self):
@@ -132,9 +132,33 @@ class TestTransformer(unittest.TestCase):
         self.assertEqual(out.shape, self.multi_head_query.shape)
 
     def test_embeddings(self):
-        x = torch.randint(10, (self.batch_size,), dtype=torch.long)
+        x = torch.randint(10, (self.batch_size, self.seq_len), dtype=torch.long)
         embeddings = Embeddings(self.dims, self.vocab_size)
         out = embeddings.forward(x)
         self.assertEqual(out.dtype, torch.float32)
         self.assertEqual(out.device, x.device)
-        self.assertEqual(out.shape, (self.batch_size, self.dims))
+        self.assertEqual(out.shape, (self.batch_size, self.seq_len, self.dims))
+
+    def test_block(self):
+        block = Block(self.dims, self.heads, self.dropout_prob)
+        out = block.forward(self.multi_head_query)
+        self.assertEqual(out.shape, self.multi_head_query.shape)
+        self.assertEqual(out.dtype, self.multi_head_query.dtype)
+        self.assertEqual(out.shape, self.multi_head_query.shape)
+
+    def test_make_gpt(self):
+        """
+        Notes on shapes:
+            input: (batch_size, seq_len)
+            output of embeddings: (batch_size, seq_len, d_model)
+            output of positional_encoding: (batch_size, seq_len, d_model)
+            output of block: (batch_size, seq_len, d_model)
+            output of model: (batch_size, seq_len, d_model)
+
+        """
+        model = make_gpt(self.vocab_size, self.num_enc, self.dims, self.dff, self.heads, self.dropout_prob)
+        x = torch.randint(10, (self.batch_size, self.seq_len), dtype=torch.long)
+        out = model(x)
+        self.assertEqual(out.shape, self.multi_head_query.shape)
+        self.assertEqual(out.dtype, self.multi_head_query.dtype)
+        self.assertEqual(out.shape, self.multi_head_query.shape)
