@@ -34,6 +34,12 @@ class CharDataset(Dataset):
         dix = [self.stoi[s] for s in seq]
         x = torch.tensor(dix, dtype=torch.long)
         return x
+    
+    def decode(self, seq: torch.Tensor) -> str:
+        out = []
+        for b in seq.tolist():
+            out.append(''.join([self.itos[x] for x in b]))
+        return out
 
     def __len__(self) -> int:
         return len(self.data) - self.block_size

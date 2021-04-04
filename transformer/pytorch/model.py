@@ -368,7 +368,7 @@ def sample(model: nn.Module,
     model.eval()
     for k in range(steps):
         x_cond = x if x.size(1) <= block_size else x[:, -block_size:] # crop context if needed
-        logits, _ = model(x_cond)
+        logits = model(x_cond)
         # pluck the logits at the final step and scale by temperature
         logits = logits[:, -1, :] / temperature
         # optionally crop probabilities to only the top k options
@@ -385,6 +385,8 @@ def sample(model: nn.Module,
         x = torch.cat((x, ix), dim=1)
 
     return x
+
+
 def make_gpt(src_vocab: int,
              N: int = 6,
              d_model: int = 512,

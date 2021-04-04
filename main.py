@@ -1,3 +1,5 @@
+from typing import Optional
+
 import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader, RandomSampler
@@ -6,13 +8,16 @@ from data.dataset import CharDataset, build_synthetic_dataset
 from transformer.pytorch.model import make_model, sample, make_gpt
 
 
-batch_size = 10
-num_samples = 10
+batch_size = 4
+num_samples = 4
 num_epochs = 100
-seq_len = 8
+seq_len = 3
 dmodel = 256
 overfit = True
-use_cuda = False
+use_cuda = True
+OFFSET = 1
+
+torch.manual_seed(1233245245)
 
 def build_dataloader(dataset: Dataset):
     sampler = RandomSampler(dataset)
@@ -73,13 +78,19 @@ def train(
         model.zero_grad()
         loss.backward()
         optim.step()
+        _eval(model, train_data_loader)
         print(f"Loss epoch {epoch}: {loss}")
 
-def _eval(model: torch.nn.Module, dataset: Dataset):
-    x = dataset.encode("Fi").unsqueeze(0)
-    steps = 10
-    pred = sample(model, x, steps, seq_len)
-    print("x: {x}, pred: {pred}")
+def _eval(model: torch.nn.Module, data_loader: DataLoader, steps: Optional[int] = 1):
+    dataset = data_loader.dataset
+    for batch_idx, data_batch in enumerate(data_loader):
+        x, y = data_batch.x, data_batch.y
+        if use_cuda:
+            x, y = x.cuda(), y.cuda()
+        pred = sample(model, x, steps, seq_len)
+        _pred = dataset.decode(pred)
+        _pred = [i[OFFSET:] for i in _pred]
+        print(f"  x: {dataset.decode(x)}, gt: {dataset.decode(y)} pred: {_pred}")
 
 if __name__ == "__main__":
     train_dataset = build_dataset(block_size=seq_len)
@@ -91,4 +102,4 @@ if __name__ == "__main__":
     if use_cuda:
         model_gpt.cuda()
     train(model_gpt, train_data_loader)
-    # _eval(model_gpt, train_dataset)
+    # _eval(model_gpt, train_data_loader)
